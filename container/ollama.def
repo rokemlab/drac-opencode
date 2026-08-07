@@ -1,0 +1,10 @@
+Bootstrap: docker
+From: ollama/ollama:latest
+
+%environment
+    export OLLAMA_HOST=127.0.0.1:11434
+    export OLLAMA_MODELS=/models
+    export OLLAMA_CONTEXT_LENGTH=32768
+
+%runscript
+    exec ollama serve
