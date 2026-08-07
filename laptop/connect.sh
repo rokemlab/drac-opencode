@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=config.sh
+source "$SCRIPT_DIR/config.sh"
+
+usage() {
+    cat <<EOF
+Usage: $0 [--dry-run]
+
+Provision a GPU session on the cluster, open an SSH tunnel to the Ollama
+port, and configure opencode to use it.
+
+  --dry-run   Print the commands without executing them.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+fi
+
+DRY_RUN=0
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "ERROR: jq is required (brew install jq)." >&2
+    exit 1
+fi
+
+REMOTE="$(remote_dir)"
+STATUS_REMOTE="$(remote_path status.txt)"
+TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
+
+run() {
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "[dry-run] $*"
+    else
+        "$@"
+    fi
+}
+
+configure_opencode() {
+    local port="$1" model="$2"
+    local cfg="$HOME/.config/opencode/opencode.json"
+    mkdir -p "$(dirname "$cfg")"
+
+    local new
+    new="$(jq -n --arg base "http://127.0.0.1:${port}/v1" --arg model "$model" \
+        '{provider: {("drac-ollama"): {npm: "@ai-sdk/openai-compatible", name: "DRAC Ollama", options: {baseURL: $base}, models: {($model): {name: ("DRAC " + $model)}}}}}')"
+
+    if [[ -f "$cfg" ]]; then
+        if ! jq -e . "$cfg" >/dev/null 2>&1; then
+            echo "ERROR: $cfg exists but is not valid JSON. Refusing to touch it." >&2
+            exit 1
+        fi
+        cp "$cfg" "$cfg.bak.pre-drac"
+        new="$(jq --argjson p "$new" \
+            '.provider = ((.provider // {}) | del(.["drac-ollama"]) | . + $p.provider)' "$cfg")"
+    fi
+
+    printf '%s\n' "$new" > "$cfg"
+    echo "Updated $cfg (backup at $cfg.bak.pre-drac)"
+}
+
+echo "==> Starting GPU session on $LOGIN_NODE"
+if ! run ssh "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/provision.sh"; then
+    echo "provision.sh did not start a new session (may already be running)."
+fi
+
+echo "==> Waiting for the Ollama server (queue wait can take minutes)..."
+if [[ $DRY_RUN -eq 1 ]]; then
+    HOST="dryrun-node"
+else
+    if ! ssh "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait 600"; then
+        echo "ERROR: session did not become ready in time." >&2
+        echo "Inspect: ssh $LOGIN_NODE 'cat \"\$SCRATCH\"/opencode/ollama.log'" >&2
+        exit 1
+    fi
+    HOST="$(ssh "$LOGIN_NODE" "grep '^host=' '$STATUS_REMOTE' | cut -d= -f2")"
+    MODEL="$(ssh "$LOGIN_NODE" "grep '^model=' '$STATUS_REMOTE' | cut -d= -f2")"
+fi
+
+if [[ -z "$HOST" ]]; then
+    echo "ERROR: could not determine compute node hostname." >&2
+    exit 1
+fi
+
+echo "==> Ollama server is on compute node $HOST (port $PORT)"
+
+if lsof -i "tcp:$PORT" >/dev/null 2>&1; then
+    echo "WARNING: 127.0.0.1:$PORT is already in use locally." >&2
+    echo "Set PORT to a free value in laptop/config.sh and cluster/config.sh." >&2
+fi
+
+if [[ $DRY_RUN -eq 1 ]]; then
+    echo "[dry-run] ssh -J $LOGIN_NODE -N -L $PORT:127.0.0.1:$PORT -o ExitOnForwardFailure=yes $HOST &"
+    echo "999999" > "$TUNNEL_PID_FILE"
+else
+    ssh -J "$LOGIN_NODE" -N -L "$PORT:127.0.0.1:$PORT" -o ExitOnForwardFailure=yes "$HOST" &
+    TUNNEL_PID=$!
+    echo "$TUNNEL_PID" > "$TUNNEL_PID_FILE"
+    echo "==> Tunnel open on 127.0.0.1:$PORT (pid $TUNNEL_PID)"
+fi
+
+echo "==> Verifying local endpoint..."
+if [[ $DRY_RUN -eq 1 ]]; then
+    echo "[dry-run] curl http://127.0.0.1:$PORT/api/tags"
+else
+    ok=0
+    for _ in $(seq 1 20); do
+        if curl -sf "http://127.0.0.1:$PORT/api/tags" >/dev/null 2>&1; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ $ok -eq 0 ]]; then
+        echo "ERROR: tunneled endpoint not reachable at 127.0.0.1:$PORT." >&2
+        exit 1
+    fi
+fi
+
+echo "==> Configuring opencode for $MODEL via http://127.0.0.1:$PORT/v1"
+if [[ $DRY_RUN -eq 1 ]]; then
+    echo "[dry-run] configure_opencode $PORT $MODEL"
+else
+    configure_opencode "$PORT" "$MODEL"
+fi
+
+echo
+echo "READY. Run: opencode"
+echo "Model: $MODEL  |  Endpoint: http://127.0.0.1:$PORT/v1"
+echo "Stop tunnel: laptop/disconnect.sh  |  Free GPU: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh'"
