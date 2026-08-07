@@ -7,6 +7,16 @@ source "$SCRIPT_DIR/config.sh"
 
 mkdir -p "$CONFIG_BASE" "$CONFIG_MODELS"
 
+cleanup() {
+    if [[ -f "$CONFIG_STATUS" ]]; then
+        grep -v '^ready=' "$CONFIG_STATUS" > "$CONFIG_STATUS.tmp" || true
+        echo "ready=no" >> "$CONFIG_STATUS.tmp"
+        mv "$CONFIG_STATUS.tmp" "$CONFIG_STATUS"
+    fi
+}
+trap cleanup EXIT
+trap 'exit 1' TERM INT HUP
+
 HOST_SHORT="$(hostname)"
 {
     echo "host=$HOST_SHORT"

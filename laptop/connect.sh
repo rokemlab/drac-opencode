@@ -32,6 +32,16 @@ fi
 REMOTE="$(remote_dir)"
 STATUS_REMOTE="$(remote_path status.txt)"
 TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
+TUNNEL_PID=""
+REACHED_READY=0
+
+cleanup() {
+    if [[ $REACHED_READY -eq 0 && -n "$TUNNEL_PID" ]]; then
+        kill "$TUNNEL_PID" || true
+        rm -f "$TUNNEL_PID_FILE" || true
+    fi
+}
+trap cleanup EXIT
 
 run() {
     if [[ $DRY_RUN -eq 1 ]]; then
@@ -96,7 +106,7 @@ fi
 
 if [[ $DRY_RUN -eq 1 ]]; then
     echo "[dry-run] ssh -J $LOGIN_NODE -N -L $PORT:127.0.0.1:$PORT -o ExitOnForwardFailure=yes $HOST &"
-    echo "999999" > "$TUNNEL_PID_FILE"
+    echo "[dry-run] pid file would be $TUNNEL_PID_FILE"
 else
     ssh -J "$LOGIN_NODE" -N -L "$PORT:127.0.0.1:$PORT" -o ExitOnForwardFailure=yes "$HOST" &
     TUNNEL_PID=$!
@@ -128,6 +138,8 @@ if [[ $DRY_RUN -eq 1 ]]; then
 else
     configure_opencode "$PORT" "$MODEL"
 fi
+
+REACHED_READY=1
 
 echo
 echo "READY. Run: opencode"
