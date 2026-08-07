@@ -1,0 +1,4 @@
+*.sif
+*.simg
+opencode.json.bak*
+.DS_Store
