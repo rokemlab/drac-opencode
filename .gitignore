@@ -3,3 +3,5 @@
 opencode.json.bak*
 .DS_Store
 .worktrees/
+
+.superpowers/
