@@ -4,8 +4,12 @@
 
 - `laptop/config.sh` — `LOGIN_NODE`, `PORT`, `MODEL` (default `qwen3:14b`).
 - `cluster/config.sh` — `GPU_COUNT`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
-  Every value can also be set as an environment variable on the command line,
-  e.g. `MODEL=qwen3:32b TIME=48:00:00 ./laptop/connect.sh`.
+  Every value can be set as an environment variable. When running cluster
+  scripts directly on the login node, e.g.
+  `MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`. On the laptop,
+  `connect.sh` uses only `LOGIN_NODE` and `PORT` from `laptop/config.sh`; the
+  model comes from the cluster status file, so set `MODEL` in
+  `cluster/config.sh`.
 
 Keep `PORT` in sync between `laptop/config.sh` and `cluster/config.sh`.
 
