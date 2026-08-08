@@ -9,8 +9,9 @@ usage() {
     cat <<EOF
 Usage: $0
 
-Kill the local SSH tunnel for port $PORT. The remote GPU session keeps
-running so you can reconnect later.
+Kill the local SSH tunnel for the current session (its port is chosen at
+random each session). The remote GPU session keeps running so you can
+reconnect later.
 EOF
 }
 
@@ -19,20 +20,20 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
-TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
+TUNNEL_PID_FILE="$(ls -t "$HOME"/.opencode-tunnel-*.pid 2>/dev/null | head -1)"
 REMOTE="$(remote_dir)"
 
-if [[ -f "$TUNNEL_PID_FILE" ]]; then
+if [[ -n "$TUNNEL_PID_FILE" && -f "$TUNNEL_PID_FILE" ]]; then
     PID="$(cat "$TUNNEL_PID_FILE")"
     if kill -0 "$PID" 2>/dev/null; then
         kill "$PID"
-        echo "Killed tunnel pid $PID for port $PORT."
+        echo "Killed tunnel pid $PID."
     else
         echo "Tunnel pid $PID is not running; removing stale pid file."
     fi
     rm -f "$TUNNEL_PID_FILE"
 else
-    echo "No tunnel pid file found for port $PORT."
+    echo "No tunnel pid file found."
 fi
 
 echo

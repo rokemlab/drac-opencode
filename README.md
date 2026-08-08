@@ -15,7 +15,8 @@ opencode at the endpoint.
    adds a `drac-ollama` provider to opencode and opens a single ssh tunnel to
    the login node (`ssh -N -L $PORT:<node-ip>:$PORT <login>`), which forwards
    to the Ollama port on the compute node over the cluster network — one
-   key+Duo login prompt, then run `opencode` in a second terminal.
+   key+Duo login prompt, then run `opencode` in a second terminal. The port is
+   chosen at random for each session, so the endpoint moves every time.
 3. **When done:** `laptop/disconnect.sh` kills the tunnel; 
    `ssh <login> 'cd <remote> && bash cluster/teardown.sh'` frees the GPU.
 

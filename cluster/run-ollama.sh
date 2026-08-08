@@ -17,7 +17,24 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh
+PORT_FROM_ENV="${PORT:-}"
 source "$SCRIPT_DIR/config.sh"
+
+# Pick a fresh random port for this session so the served endpoint moves each
+# time (other cluster users cannot guess it). An explicitly pinned PORT wins.
+if [[ -z "$PORT_FROM_ENV" ]]; then
+    PORT=""
+    for _ in 1 2 3; do
+        cand=$(( 20000 + RANDOM % 30000 ))
+        if ! command -v ss >/dev/null 2>&1 || ! ss -ltn 2>/dev/null | grep -q ":$cand "; then
+            PORT=$cand
+            break
+        fi
+    done
+    if [[ -z "$PORT" ]]; then
+        PORT=$(( 20000 + RANDOM % 30000 ))
+    fi
+fi
 
 mkdir -p "$CONFIG_BASE" "$CONFIG_MODELS"
 
