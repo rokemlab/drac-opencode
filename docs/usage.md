@@ -13,6 +13,123 @@
 
 Keep `PORT` in sync between `laptop/config.sh` and `cluster/config.sh`.
 
+## Configuring opencode
+
+opencode runs on your laptop and talks to the Ollama endpoint on the GPU node
+through the SSH tunnel. It learns about that endpoint through a `drac-ollama`
+provider in your opencode config, `~/.config/opencode/opencode.json`.
+
+### What `connect.sh` does automatically
+
+Every run of `laptop/connect.sh` merges a minimal `drac-ollama` provider into
+`~/.config/opencode/opencode.json`:
+
+- The provider points at `http://127.0.0.1:$PORT/v1` (the tunneled endpoint).
+- The model key is whatever `MODEL` the cluster session is serving (from
+  `cluster/config.sh`, e.g. `qwen3:14b`), named `"DRAC <model>"`.
+- Your existing config is backed up to `opencode.json.bak.pre-drac` before the
+  merge. If the existing file is not valid JSON, `connect.sh` refuses to touch
+  it and exits.
+
+Exactly what it writes (for the default `PORT=11434`, `MODEL=qwen3:14b`):
+
+```json
+{
+  "provider": {
+    "drac-ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DRAC Ollama",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1"
+      },
+      "models": {
+        "qwen3:14b": {
+          "name": "DRAC qwen3:14b"
+        }
+      }
+    }
+  }
+}
+```
+
+Note: `connect.sh` replaces the whole `drac-ollama` block on every run, so any
+fields you add to it by hand (like the ones below) are wiped the next time you
+connect. Customize it after connecting, or keep your customizations in a
+project-level `opencode.json` if they must survive.
+
+### Manual configuration
+
+You can also write the provider by hand. The model id is
+`drac-ollama/<model>` — e.g. `drac-ollama/qwen3:14b` — which is what you
+select in opencode's model picker or set as the default `model`.
+
+A full recommended block, using the same option names as a typical local
+provider config:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "drac-ollama/qwen3:14b",
+  "provider": {
+    "drac-ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DRAC Ollama",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
+        "qwen3:14b": {
+          "name": "Qwen3 14B (DRAC GPU)",
+          "tool_call": true,
+          "reasoning": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          },
+          "maxTokens": 8192,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Field reference:
+
+| Field | Meaning |
+| --- | --- |
+| `npm` | SDK package that implements the provider (`@ai-sdk/openai-compatible`). |
+| `options.baseURL` | Must match the tunnel: `http://127.0.0.1:$PORT/v1`. |
+| `options.apiKey` | Dummy key; Ollama ignores it, but some SDKs require one. |
+| `models.<model>` | Per-model entry keyed by the Ollama model name (e.g. `qwen3:14b`). |
+| `tool_call` | Enable tool calling so opencode can use its tools with this model. |
+| `maxTokens` | Maximum output tokens per response. |
+| `reasoning` | Mark the model as a reasoning model. |
+| `interleaved` | Stream reasoning text (`{"field": "reasoning_content"}`) for models that emit a `reasoning_content` field, e.g. Qwen3 thinking mode. |
+| `limit.context` | Context window. 32768 matches the container's `OLLAMA_CONTEXT_LENGTH`. |
+| `limit.output` | Output token limit. |
+
+### Selecting the model
+
+- In the TUI, switch models and pick `drac-ollama/qwen3:14b` (listed under the
+  provider name "DRAC Ollama").
+- To make it the default, set `"model": "drac-ollama/qwen3:14b"` in
+  `~/.config/opencode/opencode.json` (or a project `opencode.json`).
+
+### Keeping it working
+
+- opencode reads its config once at startup — quit and restart opencode after
+  running `connect.sh` or after editing the config.
+- `connect.sh` must have completed and the tunnel must be up for the endpoint
+  to respond. `laptop/disconnect.sh` kills the tunnel; the provider stays in
+  the config and just fails until you reconnect.
+- The port in `options.baseURL` must match `PORT` in `laptop/config.sh` (and
+  `cluster/config.sh`).
+
 ## Per-cluster notes
 
 - Max `TIME` limits vary by cluster/partition (check with
@@ -30,6 +147,7 @@ Keep `PORT` in sync between `laptop/config.sh` and `cluster/config.sh`.
 - Model pull failed but server runs — `apptainer exec <sif> ollama pull <model>`
 - opencode shows no `drac-ollama` models — check the endpoint:
   `curl http://127.0.0.1:$PORT/v1/models`, then re-run `./laptop/connect.sh`.
+  See [Configuring opencode](#configuring-opencode).
 
 ## Manual test checklist
 
