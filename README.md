@@ -5,7 +5,7 @@ Canada (Alliance Canada) Slurm clusters. Ollama serves the model on a compute
 node; a script on your laptop opens an encrypted SSH tunnel to it and points
 opencode at the endpoint.
 
-*An Alliance GPU that, like its namesake, does its best work after midnight.*
+*An Alliance GPU that, like its namesake, counts every token. Ah ah ah!*
 
 ## How it works
 

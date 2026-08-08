@@ -131,9 +131,8 @@ Field reference:
 - The port in `options.baseURL` must match `PORT` in `laptop/config.sh` (and
   `cluster/config.sh`).
 
-> *The tunnel is our one window into the crypt: it opens with a single bite
-> (one key + Duo prompt) and stays open while opencode feeds. Bar it with
-> `laptop/disconnect.sh` when the night is over.*
+> *The Count counts the handshake: one key, one Duo prompt, one tunnel — ah ah ah!
+> Bar it with `laptop/disconnect.sh` when the counting is done.*
 
 ### Security note
 
@@ -143,8 +142,8 @@ it. Other cluster users can reach that API for the lifetime of the session and
 could run inference on the GPU, pull/delete models, or send abusive prompts.
 Teardown closes the port. Only run sessions you're actively using.
 
-> *An unbarred crypt draws company. Keep the session alive only as long as
-> you're actually using it.*
+> *The Count counts his sessions: one at a time, ah ah ah! Keep a session alive
+> only as long as you're actually using it.*
 
 ## Per-cluster notes
 

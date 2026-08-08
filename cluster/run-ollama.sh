@@ -47,7 +47,7 @@ fi
 echo "=== opencode GPU session on $HOST_SHORT ==="
 echo "Model: $MODEL  |  Port: $PORT  |  Node IP: $NODE_IP  |  Status: $CONFIG_STATUS"
 echo "NOTE: ollama listens on the cluster network so the login node can tunnel to it."
-echo "      (Dracula's kin need no invitation to cross — just the right port.)"
+echo "      (The Count needs no invitation to cross — just the right port. Ah ah ah!)"
 
 if [[ ! -f "$CONFIG_SIF" ]]; then
     echo "ERROR: container image not found at $CONFIG_SIF" >&2
@@ -66,7 +66,7 @@ apptainer run \
     >"$CONFIG_LOG" 2>&1 &
 SERVE_PID=$!
 
-echo "Waiting for ollama to rise from its slumber on $NODE_IP:$PORT..."
+echo "Waiting for ollama on $NODE_IP:$PORT... one... two... three... ah ah ah!"
 ready=0
 for _ in $(seq 1 60); do
     if curl -sf "http://$NODE_IP:$PORT/api/tags" >/dev/null 2>&1; then
@@ -104,6 +104,6 @@ echo " READY: opencode GPU session live on $HOST_SHORT"
 echo " Model: $MODEL  |  Port: $PORT"
 echo " From your laptop run: laptop/connect.sh"
 echo "============================================================"
-echo "The night shift begins. The model is risen and hungry for tokens."
+echo "The Count has counted: one model, one GPU, one port. Ah ah ah!"
 
 wait "$SERVE_PID"
