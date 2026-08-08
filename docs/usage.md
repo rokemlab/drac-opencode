@@ -2,16 +2,19 @@
 
 ## Configuration
 
-- `laptop/config.sh` — `LOGIN_NODE`, `PORT`, `MODEL` (default `qwen3:14b`).
-- `cluster/config.sh` — `GPU_COUNT`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
-  Every value can be set as an environment variable. When running cluster
-  scripts directly on the login node, e.g.
-  `MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`. On the laptop,
-  `connect.sh` uses only `LOGIN_NODE` and `PORT` from `laptop/config.sh`; the
-  model comes from the cluster status file, so set `MODEL` in
-  `cluster/config.sh`.
+One shared `config.sh` at the repo root, sourced by both the laptop and the
+cluster scripts. `laptop/setup.sh` rsyncs it to the cluster, so both sides
+always use the same values.
 
-Keep `PORT` in sync between `laptop/config.sh` and `cluster/config.sh`.
+- Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`).
+- Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
+
+Every value can be set as an environment variable. When running cluster
+scripts directly on the login node, e.g.
+`MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`.
+
+`PORT` is chosen at random for each session and recorded in the cluster status
+file, so you never set it by hand.
 
 ## Configuring opencode
 
@@ -26,12 +29,13 @@ Every run of `laptop/connect.sh` merges a minimal `drac-ollama` provider into
 
 - The provider points at `http://127.0.0.1:$PORT/v1` (the tunneled endpoint).
 - The model key is whatever `MODEL` the cluster session is serving (from
-  `cluster/config.sh`, e.g. `qwen3:14b`), named `"DRAC <model>"`.
+  `config.sh`, e.g. `qwen3:14b`), named `"DRAC <model>"`.
 - Your existing config is backed up to `opencode.json.bak.pre-drac` before the
   merge. If the existing file is not valid JSON, `connect.sh` refuses to touch
   it and exits.
 
-Exactly what it writes (for the default `PORT=11435`, `MODEL=qwen3:14b`):
+Exactly what it writes (`MODEL=qwen3:14b`; the port is whatever the session
+rolled, not a fixed default):
 
 ```json
 {
@@ -128,8 +132,9 @@ Field reference:
   so run it in one terminal and `opencode` in a second. The tunnel must be up
   for the endpoint to respond. `laptop/disconnect.sh` kills the tunnel; the
   provider stays in the config and just fails until you reconnect.
-- The port in `options.baseURL` must match `PORT` in `laptop/config.sh` (and
-  `cluster/config.sh`).
+- The session port is chosen at random each time the session starts and is
+  recorded in the cluster status file (`port=`). `connect.sh` reads it and
+  writes it into `options.baseURL`, so you never set it by hand.
 
 ### Security note
 
@@ -137,7 +142,8 @@ While a session is running, the Ollama API on the compute node listens on the
 cluster-internal network (not just localhost), so the login node can forward to
 it. Other cluster users can reach that API for the lifetime of the session and
 could run inference on the GPU, pull/delete models, or send abusive prompts.
-Teardown closes the port. Only run sessions you're actively using.
+Teardown closes the port. The serving port is randomized per session, so other
+users can't easily find the endpoint. Only run sessions you're actively using.
 
 ## Per-cluster notes
 
@@ -156,7 +162,8 @@ Teardown closes the port. Only run sessions you're actively using.
   which forwards to Ollama on the compute node over the cluster network — no
   second prompt and no compute-node host-key confirmation.
 - `session did not become ready` — `ssh <login> 'tail -n 40 $SCRATCH/opencode/ollama.log'`
-- `127.0.0.1:$PORT is already in use` — pick a free port in both config files.
+- `127.0.0.1:$PORT is already in use` — the rolled session port is taken
+  locally; re-run `connect.sh` to get a fresh one.
 - Model pull times out / model missing — compute nodes have no internet; models
   are pulled on the login node by `cluster/pull-model.sh` (run automatically by
   `setup.sh` and `provision.sh`). Retry manually:

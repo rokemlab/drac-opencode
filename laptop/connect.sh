@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=config.sh
-source "$SCRIPT_DIR/config.sh"
+# shellcheck source=../config.sh
+source "$SCRIPT_DIR/../config.sh"
 
 usage() {
     cat <<EOF
@@ -31,7 +31,6 @@ fi
 
 REMOTE="$(remote_dir)"
 STATUS_REMOTE="$(remote_path status.txt)"
-TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
 
 run() {
     if [[ $DRY_RUN -eq 1 ]]; then
@@ -82,7 +81,10 @@ else
     HOST="$(ssh "$LOGIN_NODE" "grep '^host=' '$STATUS_REMOTE' | cut -d= -f2")"
     COMPUTE_IP="$(ssh "$LOGIN_NODE" "grep '^ip=' '$STATUS_REMOTE' | cut -d= -f2")"
     MODEL="$(ssh "$LOGIN_NODE" "grep '^model=' '$STATUS_REMOTE' | cut -d= -f2")"
+    PORT="$(ssh "$LOGIN_NODE" "grep '^port=' '$STATUS_REMOTE' | cut -d= -f2")"
 fi
+
+TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
 
 if [[ -z "$HOST" ]]; then
     echo "ERROR: could not determine compute node hostname." >&2
@@ -95,11 +97,18 @@ if [[ -z "$COMPUTE_IP" ]]; then
     exit 1
 fi
 
+if [[ -z "$PORT" ]]; then
+    echo "ERROR: could not determine session port (status file missing port=)." >&2
+    echo "Re-provision: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh && bash cluster/provision.sh'" >&2
+    exit 1
+fi
+
 echo "==> Ollama server is on compute node $HOST ($COMPUTE_IP, port $PORT)"
 
 if lsof -i "tcp:$PORT" >/dev/null 2>&1; then
-    echo "WARNING: 127.0.0.1:$PORT is already in use locally." >&2
-    echo "Set PORT to a free value in laptop/config.sh and cluster/config.sh." >&2
+    echo "ERROR: 127.0.0.1:$PORT is already in use locally." >&2
+    echo "Re-run connect.sh to roll a fresh port for this session." >&2
+    exit 1
 fi
 
 echo "==> Configuring opencode for $MODEL via http://127.0.0.1:$PORT/v1"
@@ -122,6 +131,7 @@ fi
 
 configure_opencode "$PORT" "$MODEL"
 
+rm -f "$HOME"/.opencode-tunnel-*.pid
 echo "$$" > "$TUNNEL_PID_FILE"
 exec ssh -N -L "$PORT:$COMPUTE_IP:$PORT" \
     -o ExitOnForwardFailure=yes "$LOGIN_NODE"
