@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
+
+# Alliance Canada clusters only define `module` in login/interactive shells.
+# Source the CVMFS environment init explicitly so it's available here too.
+if [[ -f /cvmfs/soft.computecanada.ca/config/profile/bash.sh ]]; then
+    source /cvmfs/soft.computecanada.ca/config/profile/bash.sh
+fi
+
+if command -v module >/dev/null 2>&1; then
+    set +u
+    module load apptainer
+    set -u
+else
+    echo "WARNING: 'module' command still not found after sourcing CVMFS profile." >&2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh

@@ -2,7 +2,7 @@
 # Laptop-side configuration for drac-opencode. Source from other laptop
 # scripts. Every value can be overridden with an environment variable.
 
-: "${LOGIN_NODE:=nibi.alliancecan.ca}"
+: "${LOGIN_NODE:=narval.alliancecan.ca}"
 : "${PORT:=11434}"
 : "${MODEL:=qwen3:14b}"
 : "${REMOTE_DIR:=/home/arokem/drac-opencode}"
