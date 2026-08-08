@@ -32,16 +32,6 @@ fi
 REMOTE="$(remote_dir)"
 STATUS_REMOTE="$(remote_path status.txt)"
 TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
-TUNNEL_PID=""
-REACHED_READY=0
-
-cleanup() {
-    if [[ $REACHED_READY -eq 0 && -n "$TUNNEL_PID" ]]; then
-        kill "$TUNNEL_PID" || true
-        rm -f "$TUNNEL_PID_FILE" || true
-    fi
-}
-trap cleanup EXIT
 
 run() {
     if [[ $DRY_RUN -eq 1 ]]; then
@@ -82,6 +72,7 @@ fi
 echo "==> Waiting for the Ollama server (queue wait can take minutes)..."
 if [[ $DRY_RUN -eq 1 ]]; then
     HOST="dryrun-node"
+    COMPUTE_IP="dryrun-ip"
 else
     if ! ssh "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait 600"; then
         echo "ERROR: session did not become ready in time." >&2
@@ -89,6 +80,7 @@ else
         exit 1
     fi
     HOST="$(ssh "$LOGIN_NODE" "grep '^host=' '$STATUS_REMOTE' | cut -d= -f2")"
+    COMPUTE_IP="$(ssh "$LOGIN_NODE" "grep '^ip=' '$STATUS_REMOTE' | cut -d= -f2")"
     MODEL="$(ssh "$LOGIN_NODE" "grep '^model=' '$STATUS_REMOTE' | cut -d= -f2")"
 fi
 
@@ -97,51 +89,39 @@ if [[ -z "$HOST" ]]; then
     exit 1
 fi
 
-echo "==> Ollama server is on compute node $HOST (port $PORT)"
+if [[ -z "$COMPUTE_IP" ]]; then
+    echo "ERROR: could not determine compute node IP (status file missing ip=)." >&2
+    echo "Re-provision: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh && bash cluster/provision.sh'" >&2
+    exit 1
+fi
+
+echo "==> Ollama server is on compute node $HOST ($COMPUTE_IP, port $PORT)"
 
 if lsof -i "tcp:$PORT" >/dev/null 2>&1; then
     echo "WARNING: 127.0.0.1:$PORT is already in use locally." >&2
     echo "Set PORT to a free value in laptop/config.sh and cluster/config.sh." >&2
 fi
 
-if [[ $DRY_RUN -eq 1 ]]; then
-    echo "[dry-run] ssh -J $LOGIN_NODE -N -L $PORT:127.0.0.1:$PORT -o ExitOnForwardFailure=yes $HOST &"
-    echo "[dry-run] pid file would be $TUNNEL_PID_FILE"
-else
-    ssh -J "$LOGIN_NODE" -N -L "$PORT:127.0.0.1:$PORT" -o ExitOnForwardFailure=yes "$HOST" &
-    TUNNEL_PID=$!
-    echo "$TUNNEL_PID" > "$TUNNEL_PID_FILE"
-    echo "==> Tunnel open on 127.0.0.1:$PORT (pid $TUNNEL_PID)"
-fi
-
-echo "==> Verifying local endpoint..."
-if [[ $DRY_RUN -eq 1 ]]; then
-    echo "[dry-run] curl http://127.0.0.1:$PORT/api/tags"
-else
-    ok=0
-    for _ in $(seq 1 20); do
-        if curl -sf "http://127.0.0.1:$PORT/api/tags" >/dev/null 2>&1; then
-            ok=1
-            break
-        fi
-        sleep 1
-    done
-    if [[ $ok -eq 0 ]]; then
-        echo "ERROR: tunneled endpoint not reachable at 127.0.0.1:$PORT." >&2
-        exit 1
-    fi
-fi
-
 echo "==> Configuring opencode for $MODEL via http://127.0.0.1:$PORT/v1"
 if [[ $DRY_RUN -eq 1 ]]; then
     echo "[dry-run] configure_opencode $PORT $MODEL"
-else
-    configure_opencode "$PORT" "$MODEL"
+    echo "[dry-run] ssh -N -L $PORT:$COMPUTE_IP:$PORT -o ExitOnForwardFailure=yes $LOGIN_NODE"
+    echo "[dry-run] pid file would be $TUNNEL_PID_FILE"
 fi
 
-REACHED_READY=1
-
 echo
-echo "READY. Run: opencode"
+echo "READY. Complete the Alliance key + Duo prompt below to open the tunnel,"
+echo "then run opencode in a NEW terminal."
 echo "Model: $MODEL  |  Endpoint: http://127.0.0.1:$PORT/v1"
 echo "Stop tunnel: laptop/disconnect.sh  |  Free GPU: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh'"
+echo
+
+if [[ $DRY_RUN -eq 1 ]]; then
+    exit 0
+fi
+
+configure_opencode "$PORT" "$MODEL"
+
+echo "$$" > "$TUNNEL_PID_FILE"
+exec ssh -N -L "$PORT:$COMPUTE_IP:$PORT" \
+    -o ExitOnForwardFailure=yes "$LOGIN_NODE"

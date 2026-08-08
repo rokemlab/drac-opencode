@@ -32,15 +32,21 @@ trap cleanup EXIT
 trap 'exit 1' TERM INT HUP
 
 HOST_SHORT="$(hostname)"
+NODE_IP="$(ip -4 addr show scope global 2>/dev/null | awk '/inet / && /scope global/ {print $2}' | cut -d/ -f1 | head -1)"
+if [[ -z "$NODE_IP" ]]; then
+    NODE_IP="$(hostname -i | awk '{print $1}')"
+fi
 {
     echo "host=$HOST_SHORT"
+    echo "ip=$NODE_IP"
     echo "port=$PORT"
     echo "model=$MODEL"
     echo "ready=no"
 } > "$CONFIG_STATUS"
 
 echo "=== opencode GPU session on $HOST_SHORT ==="
-echo "Model: $MODEL  |  Port: $PORT  |  Status: $CONFIG_STATUS"
+echo "Model: $MODEL  |  Port: $PORT  |  Node IP: $NODE_IP  |  Status: $CONFIG_STATUS"
+echo "NOTE: ollama listens on the cluster network so the login node can tunnel to it."
 
 if [[ ! -f "$CONFIG_SIF" ]]; then
     echo "ERROR: container image not found at $CONFIG_SIF" >&2
@@ -51,7 +57,7 @@ fi
 echo "Starting ollama serve inside apptainer..."
 apptainer run \
     --nv \
-    --env "OLLAMA_HOST=127.0.0.1:$PORT" \
+    --env "OLLAMA_HOST=$NODE_IP:$PORT" \
     --env "OLLAMA_MODELS=/models" \
     --env "OLLAMA_CONTEXT_LENGTH=32768" \
     --bind "$CONFIG_MODELS:/models" \
@@ -59,10 +65,10 @@ apptainer run \
     >"$CONFIG_LOG" 2>&1 &
 SERVE_PID=$!
 
-echo "Waiting for ollama to listen on 127.0.0.1:$PORT..."
+echo "Waiting for ollama to listen on $NODE_IP:$PORT..."
 ready=0
 for _ in $(seq 1 60); do
-    if curl -sf "http://127.0.0.1:$PORT/api/tags" >/dev/null 2>&1; then
+    if curl -sf "http://$NODE_IP:$PORT/api/tags" >/dev/null 2>&1; then
         ready=1
         break
     fi

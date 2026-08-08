@@ -31,7 +31,7 @@ Every run of `laptop/connect.sh` merges a minimal `drac-ollama` provider into
   merge. If the existing file is not valid JSON, `connect.sh` refuses to touch
   it and exits.
 
-Exactly what it writes (for the default `PORT=11434`, `MODEL=qwen3:14b`):
+Exactly what it writes (for the default `PORT=11435`, `MODEL=qwen3:14b`):
 
 ```json
 {
@@ -40,7 +40,7 @@ Exactly what it writes (for the default `PORT=11434`, `MODEL=qwen3:14b`):
       "npm": "@ai-sdk/openai-compatible",
       "name": "DRAC Ollama",
       "options": {
-        "baseURL": "http://127.0.0.1:11434/v1"
+        "baseURL": "http://127.0.0.1:11435/v1"
       },
       "models": {
         "qwen3:14b": {
@@ -75,7 +75,7 @@ provider config:
       "npm": "@ai-sdk/openai-compatible",
       "name": "DRAC Ollama",
       "options": {
-        "baseURL": "http://127.0.0.1:11434/v1",
+        "baseURL": "http://127.0.0.1:11435/v1",
         "apiKey": "ollama"
       },
       "models": {
@@ -124,11 +124,20 @@ Field reference:
 
 - opencode reads its config once at startup — quit and restart opencode after
   running `connect.sh` or after editing the config.
-- `connect.sh` must have completed and the tunnel must be up for the endpoint
-  to respond. `laptop/disconnect.sh` kills the tunnel; the provider stays in
-  the config and just fails until you reconnect.
+- `connect.sh` writes the config and then opens the tunnel in the foreground,
+  so run it in one terminal and `opencode` in a second. The tunnel must be up
+  for the endpoint to respond. `laptop/disconnect.sh` kills the tunnel; the
+  provider stays in the config and just fails until you reconnect.
 - The port in `options.baseURL` must match `PORT` in `laptop/config.sh` (and
   `cluster/config.sh`).
+
+### Security note
+
+While a session is running, the Ollama API on the compute node listens on the
+cluster-internal network (not just localhost), so the login node can forward to
+it. Other cluster users can reach that API for the lifetime of the session and
+could run inference on the GPU, pull/delete models, or send abusive prompts.
+Teardown closes the port. Only run sessions you're actively using.
 
 ## Per-cluster notes
 
@@ -142,6 +151,10 @@ Field reference:
 ## Troubleshooting
 
 - `apptainer: command not found` — load the module, see above.
+- Expect one Alliance key + Duo prompt from `connect.sh` (the login node). The
+  tunnel is a single ssh to the login node (`ssh -N -L $PORT:<node-ip>:$PORT`),
+  which forwards to Ollama on the compute node over the cluster network — no
+  second prompt and no compute-node host-key confirmation.
 - `session did not become ready` — `ssh <login> 'tail -n 40 $SCRATCH/opencode/ollama.log'`
 - `127.0.0.1:$PORT is already in use` — pick a free port in both config files.
 - Model pull times out / model missing — compute nodes have no internet; models
@@ -158,8 +171,10 @@ Run these once on a real cluster after setup to validate the whole stack:
 
 - [ ] `laptop/setup.sh` completes and `ollama.sif` exists on the cluster.
 - [ ] `ssh <login> 'bash <remote>/cluster/provision.sh --dry-run'` prints the srun command.
-- [ ] `./laptop/connect.sh` reaches the `READY` banner.
-- [ ] `curl http://127.0.0.1:$PORT/api/tags` lists the model on the laptop.
+- [ ] `./laptop/connect.sh` prints the `READY` banner and opens the tunnel
+      (complete the key + Duo prompt in that terminal).
+- [ ] In a second terminal, `curl http://127.0.0.1:$PORT/api/tags` lists the
+      model on the laptop.
 - [ ] `curl http://127.0.0.1:$PORT/v1/models` returns an OpenAI-style model list.
 - [ ] `opencode` starts and the `drac-ollama` provider/model is selectable.
 - [ ] `./laptop/disconnect.sh` kills the tunnel; endpoint no longer responds.

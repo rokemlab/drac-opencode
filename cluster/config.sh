@@ -2,7 +2,7 @@
 # Cluster-side configuration for drac-opencode. Source from other cluster
 # scripts. Every value can be overridden with an environment variable.
 
-: "${PORT:=11434}"
+: "${PORT:=11435}"
 : "${GPU_CONFIG:=a100:1}"
 : "${CPUS:=4}"
 : "${MEM:=16G}"

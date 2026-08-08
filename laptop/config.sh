@@ -3,7 +3,7 @@
 # scripts. Every value can be overridden with an environment variable.
 
 : "${LOGIN_NODE:=narval.alliancecan.ca}"
-: "${PORT:=11434}"
+: "${PORT:=11435}"
 : "${MODEL:=qwen3:14b}"
 : "${REMOTE_DIR:=/home/arokem/drac-opencode}"
 : "${FAKE_REMOTE:=}"

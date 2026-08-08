@@ -11,9 +11,11 @@ opencode at the endpoint.
    builds an Apptainer image (`ollama.sif`) from `container/ollama.def`.
 2. **Each session:** `laptop/connect.sh` starts a persistent tmux session on
    the login node, which runs `srun` to grab a GPU node and launches `ollama
-   serve` inside the container (localhost-only, model stored on `$SCRATCH`).
-   The laptop then opens `ssh -J <login> -L $PORT:127.0.0.1:$PORT <node>`,
-   verifies the endpoint, and adds a `drac-ollama` provider to opencode.
+   serve` inside the container (model stored on `$SCRATCH`). The laptop then
+   adds a `drac-ollama` provider to opencode and opens a single ssh tunnel to
+   the login node (`ssh -N -L $PORT:<node-ip>:$PORT <login>`), which forwards
+   to the Ollama port on the compute node over the cluster network — one
+   key+Duo login prompt, then run `opencode` in a second terminal.
 3. **When done:** `laptop/disconnect.sh` kills the tunnel; 
    `ssh <login> 'cd <remote> && bash cluster/teardown.sh'` frees the GPU.
 
@@ -25,8 +27,8 @@ opencode at the endpoint.
 ./laptop/setup.sh                             # sync repo + build image (once)
 
 # 2. On your laptop: connect and run
-./laptop/connect.sh
-opencode                                    # select the drac-ollama model
+./laptop/connect.sh            # holds the tunnel open (run in one terminal)
+opencode                       # select the drac-ollama model (second terminal)
 ```
 
 ## Requirements
