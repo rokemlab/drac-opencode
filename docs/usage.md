@@ -131,6 +131,10 @@ Field reference:
 - The port in `options.baseURL` must match `PORT` in `laptop/config.sh` (and
   `cluster/config.sh`).
 
+> *The tunnel is our one window into the crypt: it opens with a single bite
+> (one key + Duo prompt) and stays open while opencode feeds. Bar it with
+> `laptop/disconnect.sh` when the night is over.*
+
 ### Security note
 
 While a session is running, the Ollama API on the compute node listens on the
@@ -138,6 +142,9 @@ cluster-internal network (not just localhost), so the login node can forward to
 it. Other cluster users can reach that API for the lifetime of the session and
 could run inference on the GPU, pull/delete models, or send abusive prompts.
 Teardown closes the port. Only run sessions you're actively using.
+
+> *An unbarred crypt draws company. Keep the session alive only as long as
+> you're actually using it.*
 
 ## Per-cluster notes
 
