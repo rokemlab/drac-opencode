@@ -6,7 +6,7 @@
 # Laptop-side
 : "${LOGIN_NODE:=narval.alliancecan.ca}"
 : "${PORT:=11435}"
-: "${MODEL:=devstral:24b}"
+: "${MODEL:=qwen3.6:27b}"
 : "${REMOTE_DIR:=/home/$USER/drac-opencode}"
 : "${FAKE_REMOTE:=}"
 
