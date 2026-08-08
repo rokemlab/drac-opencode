@@ -2,10 +2,10 @@
 # Laptop-side configuration for drac-opencode. Source from other laptop
 # scripts. Every value can be overridden with an environment variable.
 
-: "${LOGIN_NODE:=narval.calculquebec.ca}"
+: "${LOGIN_NODE:=nibi.alliancecan.ca}"
 : "${PORT:=11434}"
 : "${MODEL:=qwen3:14b}"
-: "${REMOTE_DIR:=}"
+: "${REMOTE_DIR:=/home/arokem/drac-opencode}"
 : "${FAKE_REMOTE:=}"
 
 # Offline testing mode: when FAKE_REMOTE is set, path helpers return local

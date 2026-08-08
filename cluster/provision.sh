@@ -36,7 +36,7 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     exit 1
 fi
 
-SRUN_CMD=(srun --gpus="$GPU_COUNT" --cpus-per-task="$CPUS" --mem="$MEM"
+SRUN_CMD=(srun --gpus="$GPU_CONFIG" --cpus-per-task="$CPUS" --mem="$MEM"
            --time="$TIME" --pty bash "$SCRIPT_DIR/run-ollama.sh")
 
 echo "srun command: ${SRUN_CMD[*]}"
