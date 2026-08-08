@@ -37,6 +37,8 @@ if ! command -v apptainer >/dev/null 2>&1; then
     exit 1
 fi
 
+mkdir -p "$(dirname "$OUT")"
+
 echo "Building $OUT from $DEF_FILE (downloads base image; can take several minutes)..."
 apptainer build "$OUT" "$DEF_FILE"
 echo "Done: $OUT"
