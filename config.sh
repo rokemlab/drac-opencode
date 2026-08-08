@@ -6,7 +6,7 @@
 # Laptop-side
 : "${LOGIN_NODE:=narval.alliancecan.ca}"
 : "${PORT:=11435}"
-: "${MODEL:=qwen3.6:27b}"
+: "${MODEL:=qwen3.6:27b}" # Should also try qwen3.6:27b-coding-mxfp8
 : "${REMOTE_DIR:=/home/$USER/drac-opencode}"
 : "${FAKE_REMOTE:=}"
 
