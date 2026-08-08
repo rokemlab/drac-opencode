@@ -24,7 +24,7 @@ opencode at the endpoint.
 
 ```bash
 # 1. On your laptop: configure
-#    Edit laptop/config.sh: LOGIN_NODE, PORT, MODEL
+#    Edit config.sh: LOGIN_NODE, MODEL
 ./laptop/setup.sh                             # sync repo + build image (once)
 
 # 2. On your laptop: connect and run

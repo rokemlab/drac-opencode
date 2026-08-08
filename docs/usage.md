@@ -2,16 +2,19 @@
 
 ## Configuration
 
-- `laptop/config.sh` — `LOGIN_NODE`, `PORT`, `MODEL` (default `qwen3:14b`).
-- `cluster/config.sh` — `GPU_COUNT`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
-  Every value can be set as an environment variable. When running cluster
-  scripts directly on the login node, e.g.
-  `MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`. On the laptop,
-  `connect.sh` uses only `LOGIN_NODE` and `PORT` from `laptop/config.sh`; the
-  model comes from the cluster status file, so set `MODEL` in
-  `cluster/config.sh`.
+One shared `config.sh` at the repo root, sourced by both the laptop and the
+cluster scripts. `laptop/setup.sh` rsyncs it to the cluster, so both sides
+always use the same values.
 
-Keep `PORT` in sync between `laptop/config.sh` and `cluster/config.sh`.
+- Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`).
+- Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
+
+Every value can be set as an environment variable. When running cluster
+scripts directly on the login node, e.g.
+`MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`.
+
+`PORT` is chosen at random for each session and recorded in the cluster status
+file, so you never set it by hand.
 
 ## Configuring opencode
 
@@ -26,7 +29,7 @@ Every run of `laptop/connect.sh` merges a minimal `drac-ollama` provider into
 
 - The provider points at `http://127.0.0.1:$PORT/v1` (the tunneled endpoint).
 - The model key is whatever `MODEL` the cluster session is serving (from
-  `cluster/config.sh`, e.g. `qwen3:14b`), named `"DRAC <model>"`.
+  `config.sh`, e.g. `qwen3:14b`), named `"DRAC <model>"`.
 - Your existing config is backed up to `opencode.json.bak.pre-drac` before the
   merge. If the existing file is not valid JSON, `connect.sh` refuses to touch
   it and exits.

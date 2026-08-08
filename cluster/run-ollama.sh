@@ -16,9 +16,9 @@ else
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=config.sh
+# shellcheck source=../config.sh
 PORT_FROM_ENV="${PORT:-}"
-source "$SCRIPT_DIR/config.sh"
+source "$SCRIPT_DIR/../config.sh"
 
 # Pick a fresh random port for this session so the served endpoint moves each
 # time (other cluster users cannot guess it). An explicitly pinned PORT wins.

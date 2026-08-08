@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=config.sh
-source "$SCRIPT_DIR/config.sh"
+# shellcheck source=../config.sh
+source "$SCRIPT_DIR/../config.sh"
 
 usage() {
     cat <<EOF
