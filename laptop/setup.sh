@@ -39,4 +39,7 @@ else
     ssh "$LOGIN_NODE" "cd '$REMOTE/container' && ./build.sh '$SIF_PATH'"
 fi
 
+echo "Ensuring the session model is available on the cluster..."
+ssh "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/pull-model.sh"
+
 echo "Setup complete."

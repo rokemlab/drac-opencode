@@ -80,15 +80,13 @@ if [[ $ready -eq 0 ]]; then
     exit 1
 fi
 
-echo "Pulling model $MODEL (first time only)..."
-if ! apptainer exec \
-    --env "OLLAMA_HOST=127.0.0.1:$PORT" \
-    --env "OLLAMA_MODELS=/models" \
-    --bind "$CONFIG_MODELS:/models" \
-    "$CONFIG_SIF" \
-    ollama pull "$MODEL"; then
-    echo "WARNING: model pull failed; the server is still running." >&2
-    echo "Retry later with: apptainer exec <sif> ollama pull $MODEL" >&2
+echo "Checking model $MODEL is present..."
+MANIFEST="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${MODEL%:*}/${MODEL#*:}"
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "ERROR: model $MODEL not found at $CONFIG_MODELS." >&2
+    echo "Compute nodes have no internet; pull it on the login node with:" >&2
+    echo "  bash cluster/pull-model.sh  (runs automatically from provision.sh)" >&2
+    exit 1
 fi
 
 echo "ready=yes" >> "$CONFIG_STATUS"

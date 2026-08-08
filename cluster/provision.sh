@@ -36,6 +36,12 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     exit 1
 fi
 
+if [[ $DRY_RUN -eq 1 ]]; then
+    echo "[dry-run] bash $SCRIPT_DIR/pull-model.sh"
+else
+    bash "$SCRIPT_DIR/pull-model.sh"
+fi
+
 SRUN_CMD=(srun --gpus="$GPU_CONFIG" --cpus-per-task="$CPUS" --mem="$MEM"
            --time="$TIME" --pty bash "$SCRIPT_DIR/run-ollama.sh")
 

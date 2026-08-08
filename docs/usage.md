@@ -144,7 +144,10 @@ Field reference:
 - `apptainer: command not found` — load the module, see above.
 - `session did not become ready` — `ssh <login> 'tail -n 40 $SCRATCH/opencode/ollama.log'`
 - `127.0.0.1:$PORT is already in use` — pick a free port in both config files.
-- Model pull failed but server runs — `apptainer exec <sif> ollama pull <model>`
+- Model pull times out / model missing — compute nodes have no internet; models
+  are pulled on the login node by `cluster/pull-model.sh` (run automatically by
+  `setup.sh` and `provision.sh`). Retry manually:
+  `ssh <login> 'cd <remote> && bash cluster/pull-model.sh'`.
 - opencode shows no `drac-ollama` models — check the endpoint:
   `curl http://127.0.0.1:$PORT/v1/models`, then re-run `./laptop/connect.sh`.
   See [Configuring opencode](#configuring-opencode).
