@@ -18,6 +18,11 @@
 : "${SESSION:=opencode}"
 : "${CONFIG_BASE:=${SCRATCH:-/scratch/$USER}/opencode}"
 
+# Timeouts (seconds)
+: "${READY_TIMEOUT:=1200}"
+: "${OLLAMA_START_TIMEOUT:=300}"
+: "${PULL_SERVE_TIMEOUT:=120}"
+
 CONFIG_SIF="${CONFIG_SIF:-$CONFIG_BASE/ollama.sif}"
 CONFIG_MODELS="${CONFIG_MODELS:-$CONFIG_BASE/models}"
 CONFIG_STATUS="${CONFIG_STATUS:-$CONFIG_BASE/status.txt}"
