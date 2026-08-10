@@ -115,8 +115,9 @@ if [[ "$1" == "exec" ]]; then
     m=""
     for ((i=1; i<=$#; i++)); do [[ "${!i}" == "pull" ]] && m="${@:i+1:1}"; done
     if [[ -n "$m" ]]; then
-        mkdir -p "$CONFIG_MODELS/manifests/registry.ollama.ai/library/${m%:*}/${m#*:}"
-        touch "$CONFIG_MODELS/manifests/registry.ollama.ai/library/${m%:*}/${m#*:}"
+        f="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${m%:*}/${m#*:}"
+        mkdir -p "$(dirname "$f")"
+        touch "$f"
         echo "pulled:$m"
     fi
 fi
@@ -126,6 +127,8 @@ chmod +x /tmp/drac-mm/bin/curl /tmp/drac-mm/bin/apptainer
 touch /tmp/drac-mm/state/fake.sif
 mkdir -p /tmp/drac-mm/state/models/manifests/registry.ollama.ai/library/olmo-3/7b-instruct
 touch /tmp/drac-mm/state/models/manifests/registry.ollama.ai/library/olmo-3/7b-instruct
+# note: the manifest path must be a regular FILE (the script checks -f), so the
+# above touch must land on a file, not re-mkdir the same path.
 ```
 
 - [ ] **Step 2: Run to verify it fails**
