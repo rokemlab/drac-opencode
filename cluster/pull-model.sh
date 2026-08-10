@@ -23,11 +23,11 @@ usage() {
     cat <<EOF
 Usage: $0
 
-Ensure the session model is available on the cluster. Runs on a login node,
-which has internet access (compute nodes do not). Pulls \$MODEL into
-\$CONFIG_MODELS if it is not already present.
+Ensure every model in MODELS is available on the cluster. Runs on a login
+node, which has internet access (compute nodes do not). Pulls any missing
+model from MODELS into \$CONFIG_MODELS.
 
-Exit 0 if the model is already present; pulls it otherwise.
+Exit 0 if all models are already present; pulls missing ones otherwise.
 EOF
 }
 
@@ -44,14 +44,27 @@ fi
 
 mkdir -p "$CONFIG_MODELS"
 
-MANIFEST="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${MODEL%:*}/${MODEL#*:}"
-if [[ -f "$MANIFEST" ]]; then
-    echo "Model $MODEL already present at $CONFIG_MODELS."
+if [[ -z "${MODELS:-}" ]]; then
+    echo "ERROR: MODELS is empty; nothing to pull." >&2
+    exit 1
+fi
+
+missing=()
+for m in $MODELS; do
+    MANIFEST="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${m%:*}/${m#*:}"
+    if [[ -f "$MANIFEST" ]]; then
+        echo "Model $m already present at $CONFIG_MODELS."
+    else
+        missing+=("$m")
+    fi
+done
+
+if [[ ${#missing[@]} -eq 0 ]]; then
     exit 0
 fi
 
 PULL_PORT="${PULL_PORT:-11435}"
-echo "Pulling $MODEL (first time only; can take several minutes)..."
+echo "Pulling missing models: ${missing[*]} (first time only; can take several minutes)..."
 apptainer run \
     --env "OLLAMA_HOST=127.0.0.1:$PULL_PORT" \
     --env "OLLAMA_MODELS=/models" \
@@ -75,11 +88,18 @@ if [[ $up -eq 0 ]]; then
     exit 1
 fi
 
-apptainer exec \
-    --env "OLLAMA_HOST=127.0.0.1:$PULL_PORT" \
-    --env "OLLAMA_MODELS=/models" \
-    --bind "$CONFIG_MODELS:/models" \
-    "$CONFIG_SIF" \
-    ollama pull "$MODEL"
-
-echo "Model $MODEL ready in $CONFIG_MODELS."
+for m in "${missing[@]}"; do
+    echo "Pulling $m ..."
+    apptainer exec \
+        --env "OLLAMA_HOST=127.0.0.1:$PULL_PORT" \
+        --env "OLLAMA_MODELS=/models" \
+        --bind "$CONFIG_MODELS:/models" \
+        "$CONFIG_SIF" \
+        ollama pull "$m"
+    MANIFEST="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${m%:*}/${m#*:}"
+    if [[ ! -f "$MANIFEST" ]]; then
+        echo "ERROR: pull of $m did not produce a manifest." >&2
+        exit 1
+    fi
+    echo "Model $m ready in $CONFIG_MODELS."
+done
