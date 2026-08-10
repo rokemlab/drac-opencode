@@ -73,7 +73,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
     HOST="dryrun-node"
     COMPUTE_IP="dryrun-ip"
 else
-    if ! ssh "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait 600"; then
+    if ! ssh "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait '$READY_TIMEOUT'"; then
         echo "ERROR: session did not become ready in time." >&2
         echo "Inspect: ssh $LOGIN_NODE 'cat \"\$SCRATCH\"/opencode/ollama.log'" >&2
         exit 1

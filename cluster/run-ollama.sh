@@ -84,7 +84,8 @@ SERVE_PID=$!
 
 echo "Waiting for ollama to listen on $NODE_IP:$PORT..."
 ready=0
-for _ in $(seq 1 60); do
+deadline=$(( $(date +%s) + OLLAMA_START_TIMEOUT ))
+while [[ $(date +%s) -lt $deadline ]]; do
     if curl -sf "http://$NODE_IP:$PORT/api/tags" >/dev/null 2>&1; then
         ready=1
         break
@@ -98,7 +99,7 @@ for _ in $(seq 1 60); do
 done
 
 if [[ $ready -eq 0 ]]; then
-    echo "ERROR: ollama did not respond within 300s." >&2
+    echo "ERROR: ollama did not respond within ${OLLAMA_START_TIMEOUT}s." >&2
     echo "Log: $CONFIG_LOG" >&2
     exit 1
 fi

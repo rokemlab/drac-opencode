@@ -11,7 +11,7 @@ Usage: $0 [--wait [SECONDS]]
 
 Print the current drac-opencode session status.
 
-  --wait [SECONDS]   Poll until the session is ready. Default timeout: 600s.
+  --wait [SECONDS]   Poll until the session is ready. Default timeout: $READY_TIMEOUTs.
 EOF
 }
 
@@ -21,7 +21,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 if [[ "${1:-}" == "--wait" ]]; then
-    timeout="${2:-600}"
+    timeout="${2:-$READY_TIMEOUT}"
     deadline=$(( $(date +%s) + timeout ))
     while ! grep -q '^ready=yes$' "$CONFIG_STATUS" 2>/dev/null; do
         if [[ $(date +%s) -ge $deadline ]]; then

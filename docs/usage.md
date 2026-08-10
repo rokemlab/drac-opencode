@@ -8,6 +8,8 @@ always use the same values.
 
 - Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`).
 - Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
+- Timeouts (seconds): `READY_TIMEOUT` (1200), `OLLAMA_START_TIMEOUT` (300),
+  `PULL_SERVE_TIMEOUT` (120).
 
 Every value can be set as an environment variable. When running cluster
 scripts directly on the login node, e.g.

@@ -61,7 +61,8 @@ SERVE_PID=$!
 trap 'kill "$SERVE_PID" 2>/dev/null || true' EXIT
 
 up=0
-for _ in $(seq 1 60); do
+deadline=$(( $(date +%s) + PULL_SERVE_TIMEOUT ))
+while [[ $(date +%s) -lt $deadline ]]; do
     if curl -sf "http://127.0.0.1:$PULL_PORT/api/tags" >/dev/null 2>&1; then
         up=1
         break
