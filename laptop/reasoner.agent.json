@@ -1,0 +1,13 @@
+{
+  "reasoner": {
+    "description": "Deep reasoning with Olmo 3 Think — no tool access, chat/analysis only",
+    "mode": "primary",
+    "model": "drac-ollama/olmo-3:7b-think",
+    "permission": {
+      "edit": "deny",
+      "bash": "deny",
+      "webfetch": "deny",
+      "task": "deny"
+    }
+  }
+}
