@@ -68,7 +68,7 @@ if ! run ssh "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/provision.sh"; then
     echo "provision.sh did not start a new session (may already be running)."
 fi
 
-echo "==> Waiting for the Ollama server (queue wait can take minutes)..."
+echo "==> Waiting for the Ollama server (queue wait can take minutes; the Count counts every one of them, ah ah ah)..."
 if [[ $DRY_RUN -eq 1 ]]; then
     HOST="dryrun-node"
     COMPUTE_IP="dryrun-ip"
@@ -121,7 +121,7 @@ fi
 echo
 echo "READY. Complete the Alliance key + Duo prompt below to open the tunnel,"
 echo "then run opencode in a NEW terminal."
-echo "Model: $MODEL  |  Endpoint: http://127.0.0.1:$PORT/v1"
+echo "The Count has counted: one model, one endpoint. Ah ah ah!  Model: $MODEL  |  Endpoint: http://127.0.0.1:$PORT/v1"
 echo "Stop tunnel: laptop/disconnect.sh  |  Free GPU: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh'"
 echo
 

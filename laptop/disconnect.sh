@@ -37,6 +37,6 @@ else
 fi
 
 echo
-echo "The remote GPU session is still running."
+echo "The Count counts the tunnels: zero tunnels left. Ah ah ah! The GPU session remains."
 echo "Reconnect:              laptop/connect.sh"
 echo "Stop session, free GPU: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh'"

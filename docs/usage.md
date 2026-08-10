@@ -136,6 +136,9 @@ Field reference:
   recorded in the cluster status file (`port=`). `connect.sh` reads it and
   writes it into `options.baseURL`, so you never set it by hand.
 
+> *The Count counts the handshake: one key, one Duo prompt, one tunnel — ah ah ah!
+> Bar it with `laptop/disconnect.sh` when the counting is done.*
+
 ### Security note
 
 While a session is running, the Ollama API on the compute node listens on the
@@ -144,6 +147,9 @@ it. Other cluster users can reach that API for the lifetime of the session and
 could run inference on the GPU, pull/delete models, or send abusive prompts.
 Teardown closes the port. The serving port is randomized per session, so other
 users can't easily find the endpoint. Only run sessions you're actively using.
+
+> *The Count counts his sessions: one at a time, ah ah ah! Keep a session alive
+> only as long as you're actually using it.*
 
 ## Per-cluster notes
 
