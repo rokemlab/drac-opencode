@@ -16,6 +16,28 @@ scripts directly on the login node, e.g.
 `PORT` is chosen at random for each session and recorded in the cluster status
 file, so you never set it by hand.
 
+## One-shot commands
+
+`laptop/up.sh` runs setup then connect in one go (sync repo, ensure the image
+and model, provision a session, open the tunnel):
+
+```bash
+./laptop/up.sh
+```
+
+It holds the tunnel open in the foreground, just like `connect.sh` — run it in
+one terminal and opencode in a second. `--dry-run` is passed through to
+`connect.sh`.
+
+`laptop/down.sh` runs disconnect then remote teardown in one go (kill the
+local tunnel, free the GPU allocation):
+
+```bash
+./laptop/down.sh
+```
+
+Both are safe to re-run; each step already handles the "nothing to do" case.
+
 ## Configuring opencode
 
 opencode runs on your laptop and talks to the Ollama endpoint on the GPU node

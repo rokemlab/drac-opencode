@@ -20,7 +20,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
-TUNNEL_PID_FILE="$(ls -t "$HOME"/.opencode-tunnel-*.pid 2>/dev/null | head -1)"
+TUNNEL_PID_FILE="$(ls -t "$HOME"/.opencode-tunnel-*.pid 2>/dev/null | head -1 || true)"
 REMOTE="$(remote_dir)"
 
 if [[ -n "$TUNNEL_PID_FILE" && -f "$TUNNEL_PID_FILE" ]]; then

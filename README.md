@@ -19,18 +19,25 @@ opencode at the endpoint.
    chosen at random for each session, so the endpoint moves every time.
 3. **When done:** `laptop/disconnect.sh` kills the tunnel; 
    `ssh <login> 'cd <remote> && bash cluster/teardown.sh'` frees the GPU.
+   For both at once, use `laptop/down.sh`.
 
 ## Quick start
 
 ```bash
-# 1. On your laptop: configure
-#    Edit config.sh: LOGIN_NODE, MODEL
-./laptop/setup.sh                             # sync repo + build image (once)
+# Configure once: edit config.sh (LOGIN_NODE, MODEL)
 
-# 2. On your laptop: connect and run
-./laptop/connect.sh            # holds the tunnel open (run in one terminal)
+# Every session, in one shot: sync repo + provision + tunnel (one terminal)
+./laptop/up.sh
 opencode                       # select the drac-ollama model (second terminal)
+
+# When done:
+./laptop/down.sh               # kill tunnel + free the GPU
 ```
+
+The granular steps are still available: `laptop/setup.sh` (sync repo, build the
+image), `laptop/connect.sh` (provision + open the tunnel, run in one terminal),
+`laptop/disconnect.sh` (kill just the tunnel), and
+`ssh <login> 'cd <remote> && bash cluster/teardown.sh'` (free just the GPU).
 
 ## Requirements
 
