@@ -57,12 +57,12 @@ fi
     echo "host=$HOST_SHORT"
     echo "ip=$NODE_IP"
     echo "port=$PORT"
-    echo "model=$MODEL"
+    echo "models=$MODELS"
     echo "ready=no"
 } > "$CONFIG_STATUS"
 
 echo "=== opencode GPU session on $HOST_SHORT ==="
-echo "Model: $MODEL  |  Port: $PORT  |  Node IP: $NODE_IP  |  Status: $CONFIG_STATUS"
+echo "Models: $MODELS  |  Port: $PORT  |  Node IP: $NODE_IP  |  Status: $CONFIG_STATUS"
 echo "NOTE: ollama listens on the cluster network so the login node can tunnel to it."
 
 if [[ ! -f "$CONFIG_SIF" ]]; then
@@ -104,11 +104,17 @@ if [[ $ready -eq 0 ]]; then
     exit 1
 fi
 
-echo "Checking model $MODEL is present..."
-MANIFEST="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${MODEL%:*}/${MODEL#*:}"
-if [[ ! -f "$MANIFEST" ]]; then
-    echo "ERROR: model $MODEL not found at $CONFIG_MODELS." >&2
-    echo "Compute nodes have no internet; pull it on the login node with:" >&2
+echo "Checking models are present..."
+missing=()
+for m in $MODELS; do
+    MANIFEST="$CONFIG_MODELS/manifests/registry.ollama.ai/library/${m%:*}/${m#*:}"
+    if [[ ! -f "$MANIFEST" ]]; then
+        missing+=("$m")
+    fi
+done
+if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: model(s) not found at $CONFIG_MODELS: ${missing[*]}" >&2
+    echo "Compute nodes have no internet; pull them on the login node with:" >&2
     echo "  bash cluster/pull-model.sh  (runs automatically from provision.sh)" >&2
     exit 1
 fi
@@ -118,7 +124,7 @@ echo "ready=yes" >> "$CONFIG_STATUS"
 echo
 echo "============================================================"
 echo " READY: opencode GPU session live on $HOST_SHORT"
-echo " Model: $MODEL  |  Port: $PORT"
+echo " Models: $MODELS  |  Port: $PORT"
 echo " From your laptop run: laptop/connect.sh"
 echo "============================================================"
 
