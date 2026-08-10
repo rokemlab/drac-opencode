@@ -12,7 +12,15 @@
 # "PORT=7777 bash cluster/provision.sh") is exported by the caller and still
 # propagates.
 : "${DRY_RUN_PORT:=11435}"
-: "${MODEL:=qwen3.6:27b}" # Should also try qwen3.6:27b-coding-mxfp8
+# MODELS is the space-separated list of models this session serves. Ollama
+# serves them all from one server/port; ollama loads whichever is requested.
+# MODEL is deprecated: if MODELS is unset but MODEL is set, seed MODELS from it
+# (keeps single-model overrides like "MODEL=qwen3:14b bash cluster/provision.sh"
+# working).
+if [[ -z "${MODELS:-}" && -n "${MODEL:-}" ]]; then
+    MODELS="$MODEL"
+fi
+: "${MODELS:=olmo-3:7b-instruct olmo-3:7b-think}"
 : "${REMOTE_DIR:=/home/$USER/drac-opencode}"
 : "${FAKE_REMOTE:=}"
 
@@ -72,7 +80,7 @@ ssh_close() {
     ssh -O exit -o ControlPath="$SSH_SOCK" "$LOGIN_NODE" 2>/dev/null || true
 }
 
-export LOGIN_NODE MODEL REMOTE_DIR FAKE_REMOTE
+export LOGIN_NODE MODELS REMOTE_DIR FAKE_REMOTE
 export SSH_SOCK SSH_PERSIST
 export GPU_CONFIG CPUS MEM TIME SESSION
 export READY_TIMEOUT OLLAMA_START_TIMEOUT PULL_SERVE_TIMEOUT
