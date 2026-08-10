@@ -269,10 +269,19 @@ exit 0
 EOF
 cat > /tmp/drac-mm/bin/apptainer <<'EOF'
 #!/usr/bin/env bash
-if [[ "$1" == "run" ]]; then sleep 2; exit 0; fi
+if [[ "$1" == "run" ]]; then sleep 30; exit 0; fi
 exit 0
 EOF
 chmod +x /tmp/drac-mm/bin/*
+
+# pre-seed state needed by the happy path (not guaranteed to persist from
+# Task 2's harness): fake SIF plus both manifest FILES (the script checks -f)
+mkdir -p /tmp/drac-mm/state && touch /tmp/drac-mm/state/fake.sif
+mkdir -p /tmp/drac-mm/state/models
+for p in olmo-3/7b-instruct olmo-3/7b-think; do
+    mkdir -p "/tmp/drac-mm/state/models/manifests/registry.ollama.ai/library/$(dirname "$p")"
+    touch "/tmp/drac-mm/state/models/manifests/registry.ollama.ai/library/$p"
+done
 
 assert_status() {
     local f=/tmp/drac-mm/state/status.txt
@@ -333,19 +342,34 @@ echo " Models: $MODELS  |  Port: $PORT"
 
 - [ ] **Step 4: Run to verify it passes**
 
+The `assert_status` `ready=yes` check cannot run AFTER the script exits: by design
+`cluster/run-ollama.sh` has an EXIT trap that rewrites `ready=no` (the server is
+gone once the script exits). So run the script in the background, poll the status
+file while it is alive, then kill it.
+
 ```bash
 bash -n cluster/run-ollama.sh
 rm -f /tmp/drac-mm/state/status.txt
 PATH="/tmp/drac-mm/bin:$PATH" CONFIG_BASE=/tmp/drac-mm/state CONFIG_SIF=/tmp/drac-mm/state/fake.sif \
-    MODELS="olmo-3:7b-instruct olmo-3:7b-think" bash cluster/run-ollama.sh; echo "rc=$?"
+    MODELS="olmo-3:7b-instruct olmo-3:7b-think" bash cluster/run-ollama.sh &
+RP=$!
+ok=0
+for i in $(seq 1 40); do
+    if grep -q '^ready=yes$' /tmp/drac-mm/state/status.txt 2>/dev/null; then ok=1; break; fi
+    sleep 0.5
+done
 assert_status
+[ "$ok" = "1" ] || echo "FAIL: ready=yes never observed during live run"
+kill "$RP" 2>/dev/null; wait "$RP" 2>/dev/null
 echo "--- missing-manifest error path ---"
 rm -rf /tmp/drac-mm/state/models/manifests/registry.ollama.ai/library/olmo-3/7b-think
 PATH="/tmp/drac-mm/bin:$PATH" CONFIG_BASE=/tmp/drac-mm/state CONFIG_SIF=/tmp/drac-mm/state/fake.sif \
     MODELS="olmo-3:7b-instruct olmo-3:7b-think" bash cluster/run-ollama.sh 2>&1 | grep -q 'olmo-3:7b-think' && echo "error lists missing model"
+f=/tmp/drac-mm/state/models/manifests/registry.ollama.ai/library/olmo-3/7b-think
+mkdir -p "$(dirname "$f")" && touch "$f"
 ```
 
-Expected: first run rc=0, `assert_status` silent, status file contains `models=olmo-3:7b-instruct olmo-3:7b-think` and `ready=yes`; error path prints a message naming `olmo-3:7b-think` (rc non-zero). Re-create the think manifest afterwards if you want the happy-path test idempotent.
+Expected: `assert_status` silent (status file contains `models=olmo-3:7b-instruct olmo-3:7b-think`); `ready=yes` observed while the backgrounded script is alive; error path prints a message naming `olmo-3:7b-think` (rc non-zero).
 
 - [ ] **Step 5: Commit**
 
