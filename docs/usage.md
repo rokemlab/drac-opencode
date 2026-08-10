@@ -16,7 +16,7 @@ always use the same values.
 
 Every value can be set as an environment variable. When running cluster
 scripts directly on the login node, e.g.
-`MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`.
+`MODELS="olmo-3:7b-instruct olmo-3:7b-think" TIME=48:00:00 bash cluster/provision.sh`.
 
 `PORT` is chosen at random for each session and recorded in the cluster status
 file, so you never set it by hand. (For testing you can pin it from the login
