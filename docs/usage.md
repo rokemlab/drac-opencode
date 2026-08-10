@@ -17,7 +17,8 @@ scripts directly on the login node, e.g.
 `MODEL=qwen3:32b TIME=48:00:00 bash cluster/provision.sh`.
 
 `PORT` is chosen at random for each session and recorded in the cluster status
-file, so you never set it by hand.
+file, so you never set it by hand. (For testing you can pin it from the login
+node: `PORT=7777 bash cluster/provision.sh`.)
 
 ## One-shot commands
 

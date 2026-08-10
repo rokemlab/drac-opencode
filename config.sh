@@ -66,7 +66,13 @@ ssh_close() {
     ssh -O exit -o ControlPath="$SSH_SOCK" "$LOGIN_NODE" 2>/dev/null || true
 }
 
-export LOGIN_NODE PORT MODEL REMOTE_DIR FAKE_REMOTE
+# PORT is intentionally NOT exported: its :=11435 default is only a laptop-side
+# fallback. An exported default would ride provision.sh -> tmux -> srun into
+# run-ollama.sh, where PORT_FROM_ENV would treat it as a user pin and skip the
+# per-session random roll. A port pinned on the login node (e.g.
+# "PORT=7777 bash cluster/provision.sh") is already exported by the caller and
+# still propagates.
+export LOGIN_NODE MODEL REMOTE_DIR FAKE_REMOTE
 export SSH_SOCK SSH_PERSIST
 export GPU_CONFIG CPUS MEM TIME SESSION
 export READY_TIMEOUT OLLAMA_START_TIMEOUT PULL_SERVE_TIMEOUT
