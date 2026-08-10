@@ -62,11 +62,13 @@ with:
 # MODEL is deprecated: if MODELS is unset but MODEL is set, seed MODELS from it
 # (keeps single-model overrides like "MODEL=qwen3:14b bash cluster/provision.sh"
 # working).
-: "${MODELS:=olmo-3:7b-instruct olmo-3:7b-think}"
 if [[ -z "${MODELS:-}" && -n "${MODEL:-}" ]]; then
     MODELS="$MODEL"
 fi
+: "${MODELS:=olmo-3:7b-instruct olmo-3:7b-think}"
 ```
+
+Note: the bridge check must run BEFORE the `:=` default (if the default ran first, it would fill `MODELS` and make the bridge dead code, breaking the Step 1 assertion `MODEL=qwen3:14b ... echo "$MODELS"` = `qwen3:14b`).
 
 Edit the export line (currently `export LOGIN_NODE MODEL REMOTE_DIR FAKE_REMOTE`) to:
 
