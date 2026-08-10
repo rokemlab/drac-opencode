@@ -41,13 +41,21 @@ run() {
 }
 
 configure_opencode() {
-    local port="$1" model="$2"
+    local port="$1" models="$2"
     local cfg="$HOME/.config/opencode/opencode.json"
+    local agent_file="$SCRIPT_DIR/reasoner.agent.json"
     mkdir -p "$(dirname "$cfg")"
 
+    local agent_json="{}"
+    if [[ -f "$agent_file" ]]; then
+        agent_json="$(cat "$agent_file")"
+    else
+        echo "WARNING: $agent_file not found; skipping reasoner agent." >&2
+    fi
+
     local new
-    new="$(jq -n --arg base "http://127.0.0.1:${port}/v1" --arg model "$model" \
-        '{provider: {("drac-ollama"): {npm: "@ai-sdk/openai-compatible", name: "DRAC Ollama", options: {baseURL: $base}, models: {($model): {name: ("DRAC " + $model)}}}}}')"
+    new="$(jq -n --arg base "http://127.0.0.1:${port}/v1" --arg models "$models" --argjson agent "$agent_json" \
+        '{provider: {("drac-ollama"): {npm: "@ai-sdk/openai-compatible", name: "DRAC Ollama", options: {baseURL: $base}, models: ($models | split(" ") | map({key: ., value: {name: ("DRAC " + .)}}) | from_entries)}}, agent: $agent}')"
 
     if [[ -f "$cfg" ]]; then
         if ! jq -e . "$cfg" >/dev/null 2>&1; then
@@ -56,7 +64,8 @@ configure_opencode() {
         fi
         cp "$cfg" "$cfg.bak.pre-drac"
         new="$(jq --argjson p "$new" \
-            '.provider = ((.provider // {}) | del(.["drac-ollama"]) | . + $p.provider)' "$cfg")"
+            '.provider = ((.provider // {}) | del(.["drac-ollama"]) | . + $p.provider)
+             | .agent = ((.agent // {}) | del(.reasoner) | . + $p.agent)' "$cfg")"
     fi
 
     printf '%s\n' "$new" > "$cfg"
@@ -81,7 +90,7 @@ else
     fi
     HOST="$(ssh_run "$LOGIN_NODE" "grep '^host=' '$STATUS_REMOTE' | cut -d= -f2")"
     COMPUTE_IP="$(ssh_run "$LOGIN_NODE" "grep '^ip=' '$STATUS_REMOTE' | cut -d= -f2")"
-    MODEL="$(ssh_run "$LOGIN_NODE" "grep '^model=' '$STATUS_REMOTE' | cut -d= -f2")"
+    MODELS="$(ssh_run "$LOGIN_NODE" "grep '^models=' '$STATUS_REMOTE' | cut -d= -f2")"
     PORT="$(ssh_run "$LOGIN_NODE" "grep '^port=' '$STATUS_REMOTE' | cut -d= -f2")"
 fi
 
@@ -104,6 +113,12 @@ if [[ -z "$PORT" ]]; then
     exit 1
 fi
 
+if [[ -z "$MODELS" ]]; then
+    echo "ERROR: could not determine session models (status file missing models=)." >&2
+    echo "Re-provision: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh && bash cluster/provision.sh'" >&2
+    exit 1
+fi
+
 echo "==> Ollama server is on compute node $HOST ($COMPUTE_IP, port $PORT)"
 
 if [[ $DRY_RUN -eq 0 ]] && lsof -i "tcp:$PORT" >/dev/null 2>&1; then
@@ -112,9 +127,9 @@ if [[ $DRY_RUN -eq 0 ]] && lsof -i "tcp:$PORT" >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "==> Configuring opencode for $MODEL via http://127.0.0.1:$PORT/v1"
+echo "==> Configuring opencode for $MODELS via http://127.0.0.1:$PORT/v1"
 if [[ $DRY_RUN -eq 1 ]]; then
-    echo "[dry-run] configure_opencode $PORT $MODEL"
+    echo "[dry-run] configure_opencode $PORT $MODELS"
     echo "[dry-run] ssh -o ControlMaster=auto -o ControlPath=$SSH_SOCK -o ControlPersist=$SSH_PERSIST -N -L $PORT:$COMPUTE_IP:$PORT -o ExitOnForwardFailure=yes $LOGIN_NODE"
     echo "[dry-run] pid file would be $TUNNEL_PID_FILE"
 fi
@@ -122,7 +137,7 @@ fi
 echo
 echo "READY. Opening the tunnel over the shared connection"
 echo "(no additional prompt needed). Run opencode in a NEW terminal."
-echo "Model: $MODEL  |  Endpoint: http://127.0.0.1:$PORT/v1"
+echo "Models: $MODELS  |  Endpoint: http://127.0.0.1:$PORT/v1"
 echo "Stop tunnel: laptop/disconnect.sh  |  Free GPU: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh'"
 echo
 
@@ -130,7 +145,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
     exit 0
 fi
 
-configure_opencode "$PORT" "$MODEL"
+configure_opencode "$PORT" "$MODELS"
 
 rm -f "$HOME"/.opencode-tunnel-*.pid
 echo "$$" > "$TUNNEL_PID_FILE"
