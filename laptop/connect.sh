@@ -72,6 +72,7 @@ echo "==> Waiting for the Ollama server (queue wait can take minutes)..."
 if [[ $DRY_RUN -eq 1 ]]; then
     HOST="dryrun-node"
     COMPUTE_IP="dryrun-ip"
+    PORT="${DRY_RUN_PORT:-11435}"
 else
     if ! ssh_run "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait '$READY_TIMEOUT'"; then
         echo "ERROR: session did not become ready in time." >&2
@@ -105,7 +106,7 @@ fi
 
 echo "==> Ollama server is on compute node $HOST ($COMPUTE_IP, port $PORT)"
 
-if lsof -i "tcp:$PORT" >/dev/null 2>&1; then
+if [[ $DRY_RUN -eq 0 ]] && lsof -i "tcp:$PORT" >/dev/null 2>&1; then
     echo "ERROR: 127.0.0.1:$PORT is already in use locally." >&2
     echo "Re-run connect.sh to roll a fresh port for this session." >&2
     exit 1

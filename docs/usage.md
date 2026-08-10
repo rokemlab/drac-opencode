@@ -7,7 +7,8 @@ cluster scripts. `laptop/setup.sh` rsyncs it to the cluster, so both sides
 always use the same values.
 
 - Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`),
-  `SSH_SOCK`, `SSH_PERSIST`.
+  `SSH_SOCK`, `SSH_PERSIST`, `DRY_RUN_PORT` (default `11435`, only used by
+  `connect.sh --dry-run` for display).
 - Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
 - Timeouts (seconds): `READY_TIMEOUT` (1200), `OLLAMA_START_TIMEOUT` (300),
   `PULL_SERVE_TIMEOUT` (120).

@@ -5,7 +5,13 @@
 
 # Laptop-side
 : "${LOGIN_NODE:=narval.alliancecan.ca}"
-: "${PORT:=11435}"
+# DRY_RUN_PORT feeds connect.sh --dry-run display only. It is deliberately not
+# exported: an exported default would ride provision.sh -> tmux -> srun into
+# run-ollama.sh, where PORT_FROM_ENV would treat it as a user pin and skip the
+# per-session random roll. A port pinned on the login node (e.g.
+# "PORT=7777 bash cluster/provision.sh") is exported by the caller and still
+# propagates.
+: "${DRY_RUN_PORT:=11435}"
 : "${MODEL:=qwen3.6:27b}" # Should also try qwen3.6:27b-coding-mxfp8
 : "${REMOTE_DIR:=/home/$USER/drac-opencode}"
 : "${FAKE_REMOTE:=}"
