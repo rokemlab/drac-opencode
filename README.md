@@ -24,7 +24,7 @@ opencode at the endpoint.
 ## Quick start
 
 ```bash
-# Configure once: edit config.sh (LOGIN_NODE, MODEL)
+# Configure once: edit config.sh (LOGIN_NODE, MODELS)
 
 # Every session, in one shot: sync repo + provision + tunnel (one terminal)
 ./laptop/up.sh

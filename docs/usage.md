@@ -6,10 +6,11 @@ One shared `config.sh` at the repo root, sourced by both the laptop and the
 cluster scripts. `laptop/setup.sh` rsyncs it to the cluster, so both sides
 always use the same values.
 
-- Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`),
-  `SSH_SOCK`, `SSH_PERSIST`, `DRY_RUN_PORT` (default `11435`, only used by
-  `connect.sh --dry-run` for display).
-- Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
+- Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODELS` (default
+  `olmo-3:7b-instruct olmo-3:7b-think`), `SSH_SOCK`, `SSH_PERSIST`,
+  `DRY_RUN_PORT` (default `11435`, only used by `connect.sh --dry-run` for
+  display).
+- Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODELS`, `SESSION`.
 - Timeouts (seconds): `READY_TIMEOUT` (1200), `OLLAMA_START_TIMEOUT` (300),
   `PULL_SERVE_TIMEOUT` (120).
 
@@ -20,6 +21,16 @@ scripts directly on the login node, e.g.
 `PORT` is chosen at random for each session and recorded in the cluster status
 file, so you never set it by hand. (For testing you can pin it from the login
 node: `PORT=7777 bash cluster/provision.sh`.)
+
+### Multiple models, one session
+
+`MODELS` is a space-separated list; every model in it is pulled on setup and
+served by the single Ollama server, all on the same random port. Ollama loads
+whichever model a request names, swapping models in and out of GPU memory as
+needed. Add or remove a model by editing `MODELS` (or overriding it on the
+command line, e.g. `MODELS="olmo-3:7b-instruct" ./laptop/up.sh`) and
+re-running `up.sh`. `MODEL` is deprecated; if set (and `MODELS` is not), it is
+used as a one-element list.
 
 ## One-shot commands
 
@@ -55,14 +66,17 @@ Every run of `laptop/connect.sh` merges a minimal `drac-ollama` provider into
 `~/.config/opencode/opencode.json`:
 
 - The provider points at `http://127.0.0.1:$PORT/v1` (the tunneled endpoint).
-- The model key is whatever `MODEL` the cluster session is serving (from
-  `config.sh`, e.g. `qwen3:14b`), named `"DRAC <model>"`.
+- The provider lists one model entry per value in `MODELS` (the models the
+  session serves, e.g. `olmo-3:7b-instruct` and `olmo-3:7b-think`), each named
+  `"DRAC <model>"`.
+- A `reasoner` agent (from `laptop/reasoner.agent.json`) is merged under
+  `agent`, using `drac-ollama/olmo-3:7b-think` with tool access denied.
 - Your existing config is backed up to `opencode.json.bak.pre-drac` before the
   merge. If the existing file is not valid JSON, `connect.sh` refuses to touch
   it and exits.
 
-Exactly what it writes (`MODEL=qwen3:14b`; the port is whatever the session
-rolled, not a fixed default):
+Exactly what it writes (`MODELS=olmo-3:7b-instruct olmo-3:7b-think`; the port
+is whatever the session rolled, not a fixed default):
 
 ```json
 {
@@ -74,9 +88,25 @@ rolled, not a fixed default):
         "baseURL": "http://127.0.0.1:11435/v1"
       },
       "models": {
-        "qwen3:14b": {
-          "name": "DRAC qwen3:14b"
+        "olmo-3:7b-instruct": {
+          "name": "DRAC olmo-3:7b-instruct"
+        },
+        "olmo-3:7b-think": {
+          "name": "DRAC olmo-3:7b-think"
         }
+      }
+    }
+  },
+  "agent": {
+    "reasoner": {
+      "description": "Deep reasoning with Olmo 3 Think — no tool access, chat/analysis only",
+      "mode": "primary",
+      "model": "drac-ollama/olmo-3:7b-think",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "webfetch": "deny",
+        "task": "deny"
       }
     }
   }
@@ -146,9 +176,12 @@ Field reference:
 
 ### Selecting the model
 
-- In the TUI, switch models and pick `drac-ollama/qwen3:14b` (listed under the
-  provider name "DRAC Ollama").
-- To make it the default, set `"model": "drac-ollama/qwen3:14b"` in
+- In the TUI, switch models and pick `drac-ollama/olmo-3:7b-instruct` or
+  `drac-ollama/olmo-3:7b-think` (listed under the provider name "DRAC
+  Ollama").
+- The `reasoner` agent (chat/analysis only, no tools) is available as an agent
+  in opencode once `connect.sh` has run.
+- To make a model the default, set `"model": "drac-ollama/<model>"` in
   `~/.config/opencode/opencode.json` (or a project `opencode.json`).
 
 ### Keeping it working
@@ -160,8 +193,9 @@ Field reference:
   for the endpoint to respond. `laptop/disconnect.sh` kills the tunnel; the
   provider stays in the config and just fails until you reconnect.
 - The session port is chosen at random each time the session starts and is
-  recorded in the cluster status file (`port=`). `connect.sh` reads it and
-  writes it into `options.baseURL`, so you never set it by hand.
+  recorded in the cluster status file (`port=`), alongside the served model
+  list (`models=`). `connect.sh` reads them and writes `options.baseURL` and
+  the model entries, so you never set them by hand.
 
 ### One key+Duo per session
 
@@ -225,6 +259,8 @@ Run these once on a real cluster after setup to validate the whole stack:
 - [ ] In a second terminal, `curl http://127.0.0.1:$PORT/api/tags` lists the
       model on the laptop.
 - [ ] `curl http://127.0.0.1:$PORT/v1/models` returns an OpenAI-style model list.
+- [ ] `opencode.json` lists both `olmo-3:7b-instruct` and `olmo-3:7b-think`
+      under `drac-ollama`, and the `reasoner` agent is present.
 - [ ] `opencode` starts and the `drac-ollama` provider/model is selectable.
 - [ ] `./laptop/disconnect.sh` kills the tunnel; endpoint no longer responds.
 - [ ] `./laptop/down.sh` tears down without another prompt (reuses the master),
