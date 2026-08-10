@@ -28,18 +28,20 @@ REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 REMOTE="$(remote_dir)"
 
 echo "Syncing $REPO to $LOGIN_NODE:$REMOTE ..."
-ssh "$LOGIN_NODE" "mkdir -p '$REMOTE'"
-rsync -a --delete --exclude '.git' "$REPO/" "$LOGIN_NODE:$REMOTE/"
+ssh_run "$LOGIN_NODE" "mkdir -p '$REMOTE'"
+rsync -a --delete --exclude '.git' \
+    -e "ssh -o ControlMaster=auto -o ControlPath=$SSH_SOCK -o ControlPersist=$SSH_PERSIST" \
+    "$REPO/" "$LOGIN_NODE:$REMOTE/"
 
 SIF_PATH="$(remote_path ollama.sif)"
-if ssh "$LOGIN_NODE" "[[ -f '$SIF_PATH' ]]"; then
+if ssh_run "$LOGIN_NODE" "[[ -f '$SIF_PATH' ]]"; then
     echo "Container image already exists at $SIF_PATH"
 else
     echo "Container image missing -- building on $LOGIN_NODE (can take several minutes)..."
-    ssh "$LOGIN_NODE" "cd '$REMOTE/container' && ./build.sh '$SIF_PATH'"
+    ssh_run "$LOGIN_NODE" "cd '$REMOTE/container' && ./build.sh '$SIF_PATH'"
 fi
 
 echo "Ensuring the session model is available on the cluster..."
-ssh "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/pull-model.sh"
+ssh_run "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/pull-model.sh"
 
 echo "Setup complete."

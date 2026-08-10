@@ -6,7 +6,8 @@ One shared `config.sh` at the repo root, sourced by both the laptop and the
 cluster scripts. `laptop/setup.sh` rsyncs it to the cluster, so both sides
 always use the same values.
 
-- Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`).
+- Laptop side: `LOGIN_NODE`, `REMOTE_DIR`, `MODEL` (default `qwen3:14b`),
+  `SSH_SOCK`, `SSH_PERSIST`.
 - Cluster side: `GPU_CONFIG`, `CPUS`, `MEM`, `TIME`, `MODEL`, `SESSION`.
 - Timeouts (seconds): `READY_TIMEOUT` (1200), `OLLAMA_START_TIMEOUT` (300),
   `PULL_SERVE_TIMEOUT` (120).
@@ -160,6 +161,21 @@ Field reference:
   recorded in the cluster status file (`port=`). `connect.sh` reads it and
   writes it into `options.baseURL`, so you never set it by hand.
 
+### One key+Duo per session
+
+All the laptop scripts share a single SSH connection using OpenSSH connection
+multiplexing. The first `ssh`/`rsync` to the login node authenticates and
+becomes the master; every subsequent call within `SSH_PERSIST` seconds reuses
+it. So a full `up.sh` run prompts once (the tunnel reuses the same connection,
+no second prompt), and `down.sh` reuses it too — or opens one fresh connection
+if the master has expired.
+
+- `SSH_SOCK` — master socket path (default `~/.cache/drac-opencode/mux-%C.sock`).
+- `SSH_PERSIST` — seconds the master stays alive after its last use (default 600).
+
+After `down.sh` the master is closed explicitly; if you never run it, the
+master expires on its own after `SSH_PERSIST` seconds.
+
 ### Security note
 
 While a session is running, the Ollama API on the compute node listens on the
@@ -181,10 +197,10 @@ users can't easily find the endpoint. Only run sessions you're actively using.
 ## Troubleshooting
 
 - `apptainer: command not found` — load the module, see above.
-- Expect one Alliance key + Duo prompt from `connect.sh` (the login node). The
-  tunnel is a single ssh to the login node (`ssh -N -L $PORT:<node-ip>:$PORT`),
-  which forwards to Ollama on the compute node over the cluster network — no
-  second prompt and no compute-node host-key confirmation.
+- Expect one Alliance key + Duo prompt per session, from the first `ssh` call
+  (or `up.sh`). Every later call, including the tunnel, reuses the shared
+  connection (see "One key+Duo per session" above) — no second prompt and no
+  compute-node host-key confirmation.
 - `session did not become ready` — `ssh <login> 'tail -n 40 $SCRATCH/opencode/ollama.log'`
 - `127.0.0.1:$PORT is already in use` — the rolled session port is taken
   locally; re-run `connect.sh` to get a fresh one.
@@ -202,12 +218,13 @@ Run these once on a real cluster after setup to validate the whole stack:
 
 - [ ] `laptop/setup.sh` completes and `ollama.sif` exists on the cluster.
 - [ ] `ssh <login> 'bash <remote>/cluster/provision.sh --dry-run'` prints the srun command.
-- [ ] `./laptop/connect.sh` prints the `READY` banner and opens the tunnel
-      (complete the key + Duo prompt in that terminal).
+- [ ] `./laptop/up.sh` prompts for the key + Duo exactly **once**, prints the
+      `READY` banner, and opens the tunnel (no second prompt at tunnel time).
 - [ ] In a second terminal, `curl http://127.0.0.1:$PORT/api/tags` lists the
       model on the laptop.
 - [ ] `curl http://127.0.0.1:$PORT/v1/models` returns an OpenAI-style model list.
 - [ ] `opencode` starts and the `drac-ollama` provider/model is selectable.
 - [ ] `./laptop/disconnect.sh` kills the tunnel; endpoint no longer responds.
-- [ ] `ssh <login> 'cd <remote> && bash cluster/teardown.sh'` frees the GPU
+- [ ] `./laptop/down.sh` tears down without another prompt (reuses the master),
+      and `ssh <login> 'bash <remote>/cluster/teardown.sh'` frees the GPU
       (`squeue -u $USER` is empty for the session).

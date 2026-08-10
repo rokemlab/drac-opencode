@@ -10,6 +10,13 @@
 : "${REMOTE_DIR:=/home/$USER/drac-opencode}"
 : "${FAKE_REMOTE:=}"
 
+# SSH connection sharing: the first connection to the login node authenticates
+# once and becomes a master; every ssh/rsync within SSH_PERSIST seconds reuses
+# it, so a full up.sh/down.sh run needs only one key+Duo prompt.
+: "${SSH_PERSIST:=600}"
+SSH_SOCK="${SSH_SOCK:-$HOME/.cache/drac-opencode/mux-%C.sock}"
+mkdir -p "$(dirname "$SSH_SOCK")"
+
 # Cluster-side
 : "${GPU_CONFIG:=a100:1}"
 : "${CPUS:=4}"
@@ -36,7 +43,7 @@ remote_dir() {
     elif [[ -n "$REMOTE_DIR" ]]; then
         echo "$REMOTE_DIR"
     else
-        ssh "${LOGIN_NODE}" 'echo "${SCRATCH:-$HOME}/opencode/remote"'
+        ssh_run "${LOGIN_NODE}" 'echo "${SCRATCH:-$HOME}/opencode/remote"'
     fi
 }
 
@@ -44,11 +51,23 @@ remote_path() {
     if [[ -n "$FAKE_REMOTE" ]]; then
         echo "$FAKE_REMOTE/$1"
     else
-        ssh "${LOGIN_NODE}" "echo \"\${SCRATCH:-\$HOME}/opencode/$1\""
+        ssh_run "${LOGIN_NODE}" "echo \"\${SCRATCH:-\$HOME}/opencode/$1\""
     fi
 }
 
+# Run ssh over the shared master connection (see SSH_SOCK above).
+SSH_MUX_OPTS=(-o ControlMaster=auto -o ControlPath="$SSH_SOCK" -o ControlPersist="$SSH_PERSIST")
+ssh_run() {
+    ssh "${SSH_MUX_OPTS[@]}" "$@"
+}
+
+# Close the shared master connection, if any.
+ssh_close() {
+    ssh -O exit -o ControlPath="$SSH_SOCK" "$LOGIN_NODE" 2>/dev/null || true
+}
+
 export LOGIN_NODE PORT MODEL REMOTE_DIR FAKE_REMOTE
+export SSH_SOCK SSH_PERSIST
 export GPU_CONFIG CPUS MEM TIME SESSION
 export READY_TIMEOUT OLLAMA_START_TIMEOUT PULL_SERVE_TIMEOUT
 export CONFIG_BASE CONFIG_SIF CONFIG_MODELS CONFIG_STATUS CONFIG_LOG

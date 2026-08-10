@@ -26,7 +26,8 @@ bash "$SCRIPT_DIR/disconnect.sh"
 
 echo
 echo "==> Step 2 of 2: teardown"
-ssh "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/teardown.sh"
+ssh_run "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/teardown.sh"
+ssh_close
 
 echo
 echo "Done. GPU session stopped."

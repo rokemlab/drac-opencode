@@ -64,7 +64,7 @@ configure_opencode() {
 }
 
 echo "==> Starting GPU session on $LOGIN_NODE"
-if ! run ssh "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/provision.sh"; then
+if ! run ssh_run "$LOGIN_NODE" "cd '$REMOTE' && bash cluster/provision.sh"; then
     echo "provision.sh did not start a new session (may already be running)."
 fi
 
@@ -73,15 +73,15 @@ if [[ $DRY_RUN -eq 1 ]]; then
     HOST="dryrun-node"
     COMPUTE_IP="dryrun-ip"
 else
-    if ! ssh "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait '$READY_TIMEOUT'"; then
+    if ! ssh_run "$LOGIN_NODE" "bash '$REMOTE/cluster/status.sh' --wait '$READY_TIMEOUT'"; then
         echo "ERROR: session did not become ready in time." >&2
         echo "Inspect: ssh $LOGIN_NODE 'cat \"\$SCRATCH\"/opencode/ollama.log'" >&2
         exit 1
     fi
-    HOST="$(ssh "$LOGIN_NODE" "grep '^host=' '$STATUS_REMOTE' | cut -d= -f2")"
-    COMPUTE_IP="$(ssh "$LOGIN_NODE" "grep '^ip=' '$STATUS_REMOTE' | cut -d= -f2")"
-    MODEL="$(ssh "$LOGIN_NODE" "grep '^model=' '$STATUS_REMOTE' | cut -d= -f2")"
-    PORT="$(ssh "$LOGIN_NODE" "grep '^port=' '$STATUS_REMOTE' | cut -d= -f2")"
+    HOST="$(ssh_run "$LOGIN_NODE" "grep '^host=' '$STATUS_REMOTE' | cut -d= -f2")"
+    COMPUTE_IP="$(ssh_run "$LOGIN_NODE" "grep '^ip=' '$STATUS_REMOTE' | cut -d= -f2")"
+    MODEL="$(ssh_run "$LOGIN_NODE" "grep '^model=' '$STATUS_REMOTE' | cut -d= -f2")"
+    PORT="$(ssh_run "$LOGIN_NODE" "grep '^port=' '$STATUS_REMOTE' | cut -d= -f2")"
 fi
 
 TUNNEL_PID_FILE="$HOME/.opencode-tunnel-$PORT.pid"
@@ -114,13 +114,13 @@ fi
 echo "==> Configuring opencode for $MODEL via http://127.0.0.1:$PORT/v1"
 if [[ $DRY_RUN -eq 1 ]]; then
     echo "[dry-run] configure_opencode $PORT $MODEL"
-    echo "[dry-run] ssh -N -L $PORT:$COMPUTE_IP:$PORT -o ExitOnForwardFailure=yes $LOGIN_NODE"
+    echo "[dry-run] ssh -o ControlMaster=auto -o ControlPath=$SSH_SOCK -o ControlPersist=$SSH_PERSIST -N -L $PORT:$COMPUTE_IP:$PORT -o ExitOnForwardFailure=yes $LOGIN_NODE"
     echo "[dry-run] pid file would be $TUNNEL_PID_FILE"
 fi
 
 echo
-echo "READY. Complete the Alliance key + Duo prompt below to open the tunnel,"
-echo "then run opencode in a NEW terminal."
+echo "READY. Opening the tunnel over the shared connection"
+echo "(no additional prompt needed). Run opencode in a NEW terminal."
 echo "Model: $MODEL  |  Endpoint: http://127.0.0.1:$PORT/v1"
 echo "Stop tunnel: laptop/disconnect.sh  |  Free GPU: ssh $LOGIN_NODE 'cd $REMOTE && bash cluster/teardown.sh'"
 echo
@@ -133,5 +133,5 @@ configure_opencode "$PORT" "$MODEL"
 
 rm -f "$HOME"/.opencode-tunnel-*.pid
 echo "$$" > "$TUNNEL_PID_FILE"
-exec ssh -N -L "$PORT:$COMPUTE_IP:$PORT" \
+exec ssh "${SSH_MUX_OPTS[@]}" -N -L "$PORT:$COMPUTE_IP:$PORT" \
     -o ExitOnForwardFailure=yes "$LOGIN_NODE"
